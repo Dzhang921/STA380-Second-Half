@@ -1,0 +1,570 @@
+---
+title: "STA380 Part2 Final"
+author: "Dongxuan Zhang"
+date: "8/1/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+green_building = read.csv('./greenbuildings.csv')
+library(tidyverse)
+```
+
+# Visualization 1 : Green Building
+
+I noticed 2 mistakes in the person's analysis. First, the rent difference is generalized from the whole market data.
+```{r, echo=FALSE, include=FALSE}
+
+green_grouped = green_building %>%
+  group_by(cluster, green_rating) %>%
+  summarise(med_rent = median(Rent),
+            median_rent = median(Rent),
+            avg_leasing_rate = mean(leasing_rate),
+            median_leasing_rate = median(leasing_rate),
+            avg_age = mean(age),
+            median_age = median(age),
+            median_size = median(size)
+            )
+```
+```{r, echo=FALSE}
+ggplot(green_grouped) +
+  geom_point(aes(x=cluster, y=med_rent,color=green_rating))
+```
+From the graph above, we see that there is a trend between the cluster and the median rent, especially between the range of 0 and 500.
+Secondly, the person is assuming that the area is 250,000 square feet out of no where.
+
+Therefore, we would first look into the known information about the proposed building:
+1. It is a 15 story building
+2. It is a mixed use building, which indicates that the amenities should equal to 1.
+
+Therefore, we would filtered the data set to contain only the data about buildings of 15 stories with amenities. 
+```{r, echo=FALSE}
+Story_15_Not = green_building %>%
+  filter(stories == 15 & amenities == 1) %>%
+  group_by(green_rating) %>%
+  summarise(median_size = median(size),
+            median_rent = median(Rent),
+            med_lease_rate = median(leasing_rate),
+            med_age = median(age),
+            med_elec = median(Electricity_Costs),
+            med_gas = median(Gas_Costs)
+  )
+Story_15_Not
+```
+
+```{r, echo= FALSE}
+ggplot(Story_15_Not) +
+  geom_col(aes(x=green_rating, y= median_rent, fill=green_rating))+
+  labs(x='Green rated', 
+       y= 'Median Rent',
+       title = '15 Stories Building Rent Comparison')
+```
+```{r, echo= FALSE}
+ggplot(Story_15_Not) +
+  geom_col(aes(x=green_rating, y= median_size, fill=green_rating))+
+  labs(x='Green rated', 
+       y= 'Median Size',
+       title = '15 Stories Building Size Comparison')
+```
+
+From the plot and summary, we are able to find out that there is huge difference in rent between the green rated and non green rated. Also, the median size for a 15 story building is around 274,540 square feet, which is way higher than the 250,000 in the analysis. 
+
+Before going into the conclusion, another important factor we have not yet considered is the class of the building. Apart from the location, class of the building can also be a significant element impacting the rent. 
+```{r, echo=FALSE}
+class_grouped = green_building %>%
+  group_by(green_rating, class_a, class_b) %>%
+  summarise(med_rent = median(Rent),
+            med_lease_rate= median(leasing_rate),
+            med_size = median(size))
+ggplot(class_grouped) +
+  geom_col(aes(x=green_rating, y=med_size, fill=green_rating))+
+  facet_wrap(~class_a+class_b, nrow=3)
+```
+
+The plot is showing the median size of office building ranging from class C to class A. We can find out that the class C buildings have the smallest size, where as class A buildings have the largest office area. Since the median size of a 15 Story building is 274,540 square feet, which falls perfectly into the class A category
+
+As for our conclusion, we are not able to use cluster to indicate the location. Therefore, we would stick with the stories and the amenities to make our prediction. It is reasonable to use median for prediction, since there are huge outliers. 
+We predict the impact of going green is 274,540 square feet * (38.3 -24) = 3,925,922. If the premium is 5%, we are able to get back pretty soon 5,000,000 / 3,925,922 = 1.27.
+However, from the size of the building, there is another assumption that we are building a class A building. Building a class A building indicates that we need to put in a lot of capital up front. However, by going green, it is definitely worthwhile for the premium cost from our analysis. 
+
+# Visualization 2: Flights at ABIA
+```{r, echo=FALSE, include=FALSE}
+ABIA = read.csv('./ABIA.csv')
+head(ABIA)
+library(wesanderson)
+library(tidyverse)
+library(dplyr)
+# Clean Data
+summary(ABIA)
+
+Clean_ABIA = ABIA %>%
+  mutate(CarrierDelay = ifelse(is.na(CarrierDelay), 0, CarrierDelay),
+         WeatherDelay = ifelse(is.na(WeatherDelay), 0, WeatherDelay),
+         NASDelay = ifelse(is.na(NASDelay), 0, NASDelay),
+         SecurityDelay = ifelse(is.na(SecurityDelay), 0, SecurityDelay)) %>%
+  drop_na()
+
+```
+As a tourist, I want to find out what is the best time to visit Austin without too many tourist.
+
+```{r, echo=FALSE}
+ggplot(Clean_ABIA)+
+  geom_bar(aes(x=factor(DayOfWeek), fill=factor(DayOfWeek)))+
+  facet_wrap(~Month,ncol=3)+
+  scale_fill_manual(values = wes_palette('BottleRocket1'))+
+  labs(x = 'Day of Week',
+       y = 'Total Aircrafts Volume',
+       title = 'Total Volume in Austin Airport vs. Day of Week')
+
+```
+From the total volume of Austin airport, we figured out that maybe September, October and November are good months to go. We still want to know if it is also the case that there are few arrivals at Austin.
+```{r, echo=FALSE}
+Dest_Aus = Clean_ABIA %>%
+  filter(Dest == 'AUS')
+
+ggplot(Dest_Aus)+
+  geom_bar(aes(x=factor(DayOfWeek), fill=factor(DayOfWeek)))+
+  facet_wrap(~Month,ncol=3)+
+  scale_fill_manual(values = wes_palette('BottleRocket1'))+
+  labs(x = 'Day of Week',
+       y = 'Arrival Aircrafts Volume',
+       title = 'Arrival Volume in Austin Airport vs. Day of Week')
+
+```
+By plotting the graph of arrival volume in Austin, we find out that September, October and November are the slow months in Austin. Within each month, Saturday seems to have the lowest volume of arrival. Therefore, we wanted to look into the distribution of delay time for each day for these month.
+```{r, echo=FALSE}
+Dest_Aus_9 = ABIA %>%
+  filter(Dest == 'AUS' & (Month == 9|Month==10|Month==11))
+
+ggplot(Dest_Aus_9)+
+  geom_boxplot(aes(x=factor(DayOfWeek), y=ArrDelay, color=factor(DayOfWeek)))+
+  facet_wrap(~Month,nrow=1)+
+  scale_fill_manual(values = wes_palette('BottleRocket1'))+
+  labs(x = 'Day of Week',
+       y = 'Arrival Delay(Total Delay)',
+       title = 'Arrival Delay Distribution vs. Day of Week')
+
+```
+Then we want to look at when would be the best time to leave Austin.
+
+```{r, echo=FALSE}
+Dep_Aus = Clean_ABIA %>%
+  filter(Origin == 'AUS')
+
+ggplot(Dep_Aus)+
+  geom_bar(aes(x=factor(DayOfWeek), fill=factor(DayOfWeek)))+
+  facet_wrap(~Month,ncol=3)+
+  scale_fill_manual(values = wes_palette('BottleRocket1'))+
+  labs(x = 'Day of Week',
+       y = 'Departure Aircrafts Volume',
+       title = 'Departure Volume in Austin Airport vs. Day of Week')
+```
+
+```{r, echo=FALSE}
+Dep_Aus_9 = ABIA %>%
+  filter(Origin == 'AUS' & (Month == 9|Month==10|Month==11))
+
+ggplot(Dep_Aus_9)+
+  geom_boxplot(aes(x=factor(DayOfWeek), y=DepDelay, color=factor(DayOfWeek)))+
+  facet_wrap(~Month,nrow=1)+
+  scale_fill_manual(values = wes_palette('BottleRocket1'))+
+  labs(x = 'Day of Week',
+       y = 'Departure Delay(Total Delay)',
+       title = 'Departure Delay Distribution vs. Day of Week')
+```
+
+
+From the box plot, we are excited to find out that Saturdays also have the lowest delay time, which would save us time for visiting. 
+Therefore, if you are planning to take a leave and visit Austin, it would be the best to take the leave during September, October and November. More detail-wise, it would be the best to arrive on a Saturday. As for leaving, you can just plan yourself comfortably, since is not much difference among the days.
+
+# Portfolio Management
+
+```{r, echo=FALSE, include=FALSE}
+library(mosaic)
+library(quantmod)
+library(foreach)
+
+```
+
+We have made 3 portfolio, which are growth, dividend and blended.
+
+For growth, I have picked ARKK, TQQQ, IWP, SOXL. ARKK is the star ETF by Cathie Wood, who have gained much attention from the public in 2020.
+TQQQ is a 3 times leverage fund of the QQQ, which is an ETF containing mostly the large tech companies.
+IWP is a leveraged ETF of Russell index, which are mostly mid-cap and small cap growing company.
+SOXL is a 3 times bull leverage ETF for semi-conductors, which I personally own and I think chip is the future brain of the world. 
+```{r, echo=FALSE, include=FALSE}
+growth = c('ARKK', 'SOXL', 'TQQQ', 'IWP')
+getSymbols(growth)
+
+ARKKa = adjustOHLC(ARKK)
+SOXLa = adjustOHLC(SOXL)
+TQQQa = adjustOHLC(TQQQ)
+IWPa = adjustOHLC(IWP)
+
+growth_return = cbind(ClCl(ARKKa), ClCl(SOXLa), ClCl(TQQQa), ClCl(IWPa))
+growth_return = as.matrix(na.omit(growth_return))
+
+
+initial = 100000
+growth_sim = foreach(i=1:5000, .combine='rbind') %do% {
+  total_wealth = initial
+  weights = c(0.25, 0.25, 0.25, 0.25)
+  holdings = total_wealth * weights
+  n_days = 20
+  wealthtracker = rep(0, n_days)
+  for (today in 1:n_days) {
+    growth.today = resample(growth_return, 1,orig.ids=FALSE)
+    holdings = holdings + holdings * (1+growth.today)
+    total_wealth = sum(holdings)
+    wealthtracker[today] = total_wealth
+  }
+  wealthtracker
+}
+
+```
+```{r, echo=FALSE}
+mean(growth_sim[,n_days])
+quantile(growth_sim[,n_days] - initial, prob =0.05)
+```
+At 5% VaR, the mean return for growth fund is 96330015735. 
+
+Then I built an extremely conservative portfolio, which is composed mostly of high dividend ETF.
+I picked USRT, HYG, SPDV, SDY, since all of them give us high dividend.
+```{r, echo=FALSE, include=FALSE}
+dividend = c('USRT', 'HYG', 'SPDV', 'SDY')
+getSymbols(dividend)
+
+USRTa = adjustOHLC(USRT)
+HYGa = adjustOHLC(HYG)
+SPDVa = adjustOHLC(SPDV)
+SDYa = adjustOHLC(SDY)
+
+dividend_return = cbind(ClCl(USRTa), ClCl(HYGa), ClCl(SPDVa), ClCl(SDYa))
+dividend_return = as.matrix(na.omit(dividend_return))
+
+initial = 100000
+dividend_sim = foreach(i=1:5000, .combine='rbind') %do% {
+  total_wealth = initial
+  weights = c(0.25, 0.25, 0.25, 0.25)
+  holdings = total_wealth * weights
+  n_days = 20
+  wealthtracker = rep(0, n_days)
+  for (today in 1:n_days) {
+    dividend.today = resample(dividend_return, 1,orig.ids=FALSE)
+    holdings = holdings + holdings * (1+dividend.today)
+    total_wealth = sum(holdings)
+    wealthtracker[today] = total_wealth
+  }
+  wealthtracker
+}
+
+```
+```{r, echo=FALSE}
+mean(dividend_sim[,n_days])
+quantile(dividend_sim[,n_days] - initial, prob =0.05)
+```
+At 5% VaR, the mean return for dividend fund is 100404523166. 
+Then we created a mixed fund, by putting more weight on the growth funds.
+
+```{r, echo=FALSE, include=FALSE}
+blend_return = cbind(ClCl(USRTa), ClCl(HYGa), ClCl(SPDVa), ClCl(SDYa),ClCl(ARKKa), ClCl(SOXLa), ClCl(TQQQa), ClCl(IWPa))
+blend_return = as.matrix(na.omit(blend_return))
+initial = 100000
+blend_sim = foreach(i=1:5000, .combine='rbind') %do% {
+  total_wealth = initial
+  weights = c(0.1, 0.1, 0.1, 0.1, 0.15, 0.15, 0.15, 0.15)
+  holdings = total_wealth * weights
+  n_days = 20
+  wealthtracker = rep(0, n_days)
+  for (today in 1:n_days) {
+    blend.today = resample(blend_return, 1,orig.ids=FALSE)
+    holdings = holdings + holdings * (1+blend.today)
+    total_wealth = sum(holdings)
+    wealthtracker[today] = total_wealth
+  }
+  wealthtracker
+}
+
+```
+
+```{r, echo=FALSE}
+mean(blend_sim[,n_days])
+quantile(blend_sim[,n_days] - initial, prob =0.05)
+```
+At 5% VaR, the mean return for dividend fund is 97191920294.
+
+From the above result, we are seeing that growth funds is actually not performing well. Instead, the high dividend funds is actually doing much better. The difference between the growth and dividend portfolio is actually pretty big. In this case, if you have a huge initial capital, we would suggest you to put your money in the high yield fund, since it is more conservative and is returning more than the growth fund. However, the potential for growth stocks is extremely huge. Therefore, in this case, investors should put their money in the blended portfolio. They can enjoy the high dividend yield and they won't miss the huge growth in the future. 
+
+
+# Social Marketing Target Customers
+```{r, echo=FALSE, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(corrplot)
+library(LICORS)
+library(foreach)
+library(mosaic)
+social = read.csv('./social_marketing.csv')
+names(social)
+target_df = social[social$personal_fitness > 0|social$health_nutrition>0,]
+target_df = target_df[,c(4,8,10,11,17,20,21,24,33)]
+
+```
+
+Our product is called NutrientH2O. Therefore, I filtered the data with those who have sent at least 1 twitter about person fitness or health. For the variables, I only picked the variables that are related to fitness, food, travel or outdoor sport.
+
+```{r, echo=FALSE}
+summary(target_df)
+
+```
+
+From the summary of our current target dataset, there are pretty big variable among the variables. Therefore, I would scale the variable and use Kmeans to cluster the observations into 6 groups.
+
+```{r, echo=FALSE, include=FALSE}
+X= scale(target_df, center=TRUE, scale=TRUE)
+mu = attr(X,"scaled:center")
+sigma = attr(X,"scaled:scale")
+
+
+clust2 = kmeanspp(X, k=6, nstart=25)
+
+```
+
+```{r,echo=FALSE}
+clust2$center[1,]*sigma + mu
+clust2$center[2,]*sigma + mu
+clust2$center[3,]*sigma + mu
+clust2$center[4,]*sigma + mu
+clust2$center[5,]*sigma + mu
+clust2$center[6,]*sigma + mu
+
+```
+Among 6 groups, group 2 seems to the people who loves the fitness and cares about health the most, according to their twitter. The group has a size of 411 people. Another group we interested is group 6. The health and fitness frequency is a bit lower than group 2. However, compared with other groups. Group 6 still has a pretty high frequency of mentioning health and fitness. The group has a size of 979 people. Compared with group 2, group 6 seems to be the group of the general public who loves fitness. Whereas, group 2 may be those top fitness key opinion leaders. Therefore, group 2 can be a great group to give free sample and do heavy marketing to the public. Whereas, group 6 may be our target consumers, who will buy the products and share the experience with friends. 
+
+# Author Attribution
+```{r, echo=FALSE, include=FALSE}
+library(tm)
+library(tidyverse)
+library(slam)
+library(proxy)
+
+# Rolling all the dictionaries into one corpus
+author_dirs = Sys.glob('./ReutersC50/C50train/*')
+file_list = NULL
+labels = NULL
+for(author in author_dirs) {
+  author_name = substring(author, first=23)
+  files_to_add = Sys.glob(paste0(author, '/*.txt'))
+  file_list = append(file_list, files_to_add)
+  labels = append(labels, rep(author_name, length(files_to_add)))
+}
+
+# Create a function to read the content
+readerPlain = function(fname){
+  readPlain(elem=list(content=readLines(fname)), 
+            id=fname, language='en') }
+
+# Apply the function to all the files
+all_docs = lapply(file_list, readerPlain)
+
+# Clean the names of the file list
+mynames = file_list %>%
+  { strsplit(., '/', fixed=TRUE) } %>%
+  { lapply(., tail, n=2) } %>%
+  { lapply(., paste0, collapse = '') } %>%
+  unlist
+
+names(all_docs) = mynames
+names(all_docs) = sub('.txt', '', names(all_docs))
+
+my_corpus = Corpus(VectorSource(all_docs))
+
+# Preprocessing
+my_corpus = tm_map(my_corpus, content_transformer(tolower)) # make everything lowercase
+my_corpus = tm_map(my_corpus, content_transformer(removeNumbers)) # remove numbers
+my_corpus = tm_map(my_corpus, content_transformer(removePunctuation)) # remove punctuation
+my_corpus = tm_map(my_corpus, content_transformer(stripWhitespace)) ## remove excess white-space
+my_corpus = tm_map(my_corpus, content_transformer(removeWords), stopwords("SMART"))
+
+X_train = DocumentTermMatrix(my_corpus)
+
+X_train = removeSparseTerms(X_train, 0.975)
+X_train
+
+# Now a dense matrix
+X_train = as.matrix(X_train)
+
+smooth_count = 1/nrow(X_train)
+w_train = rowsum(X_train + smooth_count, labels)
+w_train = w_train/sum(w_train)
+w_train = log(w_train)
+
+# Create test set
+author_dirs = Sys.glob('./ReutersC50/C50test/*')
+file_list = NULL
+labels = NULL
+author_names = NULL
+test_labels = NULL
+
+for(author in author_dirs) {
+  author_name = substring(author, first=22)
+  author_names = append(author_names, author_name)
+  files_to_add = Sys.glob(paste0(author, '/*.txt'))
+  file_list = append(file_list, files_to_add)
+  test_labels = append(test_labels, rep(author_name, length(files_to_add)))
+}
+
+# Create a function to read the content
+readerPlain = function(fname){
+  readPlain(elem=list(content=readLines(fname)), 
+            id=fname, language='en') }
+
+# Apply the function to all the files
+all_docs = lapply(file_list, readerPlain)
+
+# Clean the names of the file list
+mynames = file_list %>%
+  { strsplit(., '/', fixed=TRUE) } %>%
+  { lapply(., tail, n=2) } %>%
+  { lapply(., paste0, collapse = '') } %>%
+  unlist
+
+names(all_docs) = mynames
+names(all_docs) = sub('.txt', '', names(all_docs))
+
+my_corpus = Corpus(VectorSource(all_docs))
+
+
+# Preprocessing
+my_corpus = tm_map(my_corpus, content_transformer(tolower)) # make everything lowercase
+my_corpus = tm_map(my_corpus, content_transformer(removeNumbers)) # remove numbers
+my_corpus = tm_map(my_corpus, content_transformer(removePunctuation)) # remove punctuation
+my_corpus = tm_map(my_corpus, content_transformer(stripWhitespace)) ## remove excess white-space
+my_corpus = tm_map(my_corpus, content_transformer(removeWords), stopwords("SMART"))
+
+X_test = DocumentTermMatrix(my_corpus, list(dictionary=colnames(X_train)))
+X_test = as.matrix(X_test)
+
+#Prediction for the test set
+predict = NULL
+for (i in 1:nrow(X_test)) {
+  # get maximum Naive Bayes log probabilities
+  max = -(Inf)
+  author = NULL
+  for (j in 1:nrow(w_train)) {
+    result = sum(w_train[j,]*X_test[i,])
+    if(result > max) {
+      max = result
+      author = rownames(w_train)[j]
+    }
+  }
+  predict = append(predict, author)
+}
+
+
+
+
+
+predict_results = table(test_labels,predict)
+
+```
+```{r, echo=FALSE}
+sum(test_labels == predict)/length(predict)
+
+```
+From the baseline of the naive bayes method, we get an accuracy of about 4.6%. Then we tried to run the random forest algorithm. Due to the computing capacity limitation, we chose a tree of depth 4 and ntrees of 50. 
+
+```{r, echo=FALSE, include=FALSE}
+library(plyr)
+library(randomForest)
+library(caret)
+
+X_train.rf = as.matrix(X_train)
+X_test.rf = as.matrix(X_test)
+X_train.rf = as.data.frame(X_train.rf)
+
+labels = NULL
+for(author in author_dirs) {
+  author_name = substring(author, first=23)
+  files_to_add = Sys.glob(paste0(author, '/*.txt'))
+  file_list = append(file_list, files_to_add)
+  labels = append(labels, rep(author_name, length(files_to_add)))
+}
+
+rf.model = randomForest(x=X_train.rf, y=as.factor(labels), mtry=4, ntree=20)
+rf.pred = predict(rf.model, data=X_test.rf)
+rf.table = as.data.frame(table(rf.pred,labels))
+new = subset(rf.table, rf.pred == labels)
+
+```
+```{r, echo=FALSE}
+sum(new$Freq)/2500
+
+```
+
+From the random forest we got an accuracy of 43.76%, which is higher than our baseline. However, due to the capacity limitation, we did not run with much trees. If we can run more trees, we tend to get a better result than the current level.
+
+
+
+# Association Rule Mining
+```{r, echo=FALSE, include=FALSE}
+library(tm)
+library(tidyverse)
+library(slam)
+library(proxy)
+library(arules)
+library(arulesViz)
+
+readerPlain = function(fname) {
+  readPlain(elem=list(content=readLines(fname)), 
+            id = fname, language = 'en')
+}
+
+grocery_raw = readerPlain('./groceries.txt')
+
+
+df = as.data.frame(grocery_raw$content)
+
+df$customer = seq.int(nrow(df))
+
+names(df)[1] = 'grocery_basket'
+df$customer = factor(df$customer)
+
+df = separate_rows(df,grocery_basket,1,sep=',')
+
+grocery_basket = split(x=df$grocery_basket, f = df$customer)
+grocery_basket = lapply(grocery_basket, unique)
+
+grocery = as(grocery_basket, 'transactions')
+
+grocery_rules = apriori(grocery, parameter = list(support=.005, confidence=.01, maxlen=2))
+```
+
+```{r, echo=FALSE}
+summary(grocery_rules)
+```
+
+For the association, we picked the max length of association to be 2. People tend not to think way too much for grocery shopping, so I picked 2 to be the max length association
+From the rules, we are seeing that lots of the items do not have an association directly. Then we looked into the summary of the rules. To achieve the most visible associations, we picked the 3rd quartile as the threshold for both the confidence and the support.
+
+```{r, echo=FALSE}
+sub1 = subset(grocery_rules, subset=confidence > 0.18 & support > 0.014)
+plot(sub1, method='graph')
+plot(head(sub1, 100, by='lift'), method='graph')
+```
+
+From the plot, we are seeing that the whole milk is at the heart of the plot. It is indicating that most of the customers would buy whole milk, regardless of what other items they buy. The whole milk is closely associated with the brown bread, which are the two essentials for breakfast. Also, cream cheese, coffee, white bread and hamburger meat are directly associated with the whole milk.
+
+One of the interesting we did not see here is that egg does not appears much association with lost of the items. Also, root vegetables are far separated from the frozen vegetables. The root vegetables are more closely associated with the fruits. If that is the case, I believe this association rule can also some what reflect the lifestyle of the grocery consumers. 
+
+For example, the consumers tends to buy tropical fruits and root vegetable together may be those who do fitness a lot.
+
+
+
+
+
+
+
+
+
